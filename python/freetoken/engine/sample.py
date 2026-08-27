@@ -28,11 +28,19 @@ def sample_impl(
     top_p: torch.Tensor | float | None,
 ) -> torch.Tensor:
     from freetoken.kernel.backend import is_flashinfer_installed
+    from freetoken.utils import is_arch_supported
 
     if is_flashinfer_installed():
         import flashinfer.sampling as sampling
-    else:
+    elif is_arch_supported(7, 0):
+        # sm_70+ : Triton's tl.atomic_* kernels compile cleanly.
         import freetoken.kernel.triton.sampling as sampling
+    else:
+        # Pascal (sm_61) and below: Triton 3.x emits atomic ordering suffixes
+        # (.acq_rel/.relaxed) that ptxas rejects below .target sm_70, so the
+        # Triton sampling kernels cannot compile. Use the torch reference path,
+        # which is exact (numerically identical) but not throughput-tuned.
+        import freetoken.kernel.triton.sampling_torch as sampling
 
     probs = sampling.softmax(logits, temperatures, enable_pdl=is_sm90_supported())
     if top_k is None and top_p is None:

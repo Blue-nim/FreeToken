@@ -857,7 +857,12 @@ def _install_shell_stop_handlers() -> None:
     terminal no longer reaches them on its own and this handler is what tears them down.
 
     SIGINT is deliberately left alone: the shell binds it, per turn, to "cancel this turn"."""
-    previous = {sig: signal.getsignal(sig) for sig in (signal.SIGTERM, signal.SIGHUP)}
+    # Windows has SIGTERM but not SIGHUP (no process groups / terminal-hangup
+    # concept); only register the stop signals this platform actually defines.
+    _stop_sigs = tuple(
+        s for s in (getattr(signal, "SIGTERM", None), getattr(signal, "SIGHUP", None)) if s is not None
+    )
+    previous = {sig: signal.getsignal(sig) for sig in _stop_sigs}
 
     def _flag_shutdown(signum, frame) -> None:
         _SHUTTING_DOWN.set()

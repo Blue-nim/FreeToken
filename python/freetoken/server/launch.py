@@ -42,7 +42,8 @@ def _detach_process_group() -> None:
     of how it stops."""
     try:
         os.setpgrp()
-    except OSError:  # no job control (already a group leader / unusual environment)
+    except (OSError, AttributeError):  # no job control (already a group leader /
+        # unusual environment), or no process-group concept at all (Windows)
         pass
 
 
