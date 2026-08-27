@@ -27,18 +27,27 @@ def _select_extend_tile(head_dim: int, block_d: int, smem_optin: int) -> tuple[i
     Keep the fast tiles where the device's opt-in shared memory fits them (datacenter
     A100/H100); shrink only where it does not. ``smem_optin == 0`` (unknown) conservatively
     selects the small tiles, i.e. the prior consumer-safe behavior.
+
+    Pascal (sm_61) hard-caps shared memory at 48KB and reports that same value as the
+    opt-in ceiling, so ``smem_optin <= 49152`` identifies it. Triton's real allocation
+    for a tile exceeds the linear q/k/v estimate (scores/acc/scratch), so on Pascal we
+    use a tight 0.5x budget AND gate every branch on it — the unconditional (128,64)
+    fast tile needs ~64KB and cannot launch on Pascal.
     """
-    budget = smem_optin * 0.8  # headroom for scores/acc/alignment/triton scratch
+    is_pascal = smem_optin <= 49152
+    budget = (smem_optin * 0.5) if is_pascal else (smem_optin * 0.8)
 
     def fits(block_m: int, block_n: int) -> bool:
         return (block_m + 2 * block_n) * block_d * 2 <= budget
 
     if head_dim <= 128:
+        if is_pascal:
+            return (64, 32) if fits(64, 32) else (32, 16) if fits(32, 16) else (16, 16)
         return 128, 64
     if head_dim <= 256:
-        return (128, 64) if fits(128, 64) else (64, 32)
+        return (128, 64) if fits(128, 64) else (64, 32) if fits(64, 32) else (16, 16)
     if head_dim <= 384:
-        return (32, 64) if fits(32, 64) else (32, 32)
+        return (32, 64) if fits(32, 64) else (32, 32) if fits(32, 32) else (16, 16)
     return (32, 64) if fits(32, 64) else (16, 16)
 
 

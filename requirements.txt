@@ -25,6 +25,7 @@ partial-json-parser>=0.2,<1
 prompt_toolkit>=3.0,<4
 pydantic>=2.9,<3
 pyzmq>=27,<28
+tornado>=6.1; platform_system == 'Windows'
 safetensors>=0.6,<1
 torch==2.13.0+cu126
 tqdm>=4.66,<5

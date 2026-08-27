@@ -10,8 +10,11 @@ nvcc reads it as a second *input file* and dies with:
     nvcc fatal: A single input file is required for a non-link phase
     when an outputfile is specified
 
-It also omits ``cudart.lib`` from the link line, so linking fails with
-unresolved ``cuda*`` symbols.
+It also hardcodes ``/std:c++17`` for BOTH the host C++ pass (cl.exe) and the
+nvcc -Xcompiler pass, which starves the kernels (and the host-side C++
+extension, e.g. radix.cpp) of C++20 (std::source_location, std::integral
+concepts). And it omits ``cudart.lib`` from the link line (unresolved
+``cuda*`` symbols).
 
 We cannot patch the installed tvm_ffi package: it dies on every ``uv pip
 install``. Instead this module monkeypatches ``tvm_ffi.cpp.extension`` at
@@ -34,17 +37,21 @@ if platform.system() == "Windows":
         if not isinstance(ninja, str):
             return ninja
 
-        # 1) Fix the host-compiler standard: tvm-ffi hardcodes /std:c++17 on
-        #    Windows, but the kernels use C++20 (std::source_location,
-        #    std::integral concepts). Pair /O2 with its own -Xcompiler too.
-        #    Before: -Xcompiler /std:c++17 /O2 -std=c++20
+        # 1) Fix the host-compiler standard. tvm-ffi hardcodes /std:c++17 on
+        #    Windows for both the cl.exe host-C++ pass (cxxflags/cflags) and the
+        #    nvcc -Xcompiler pass, but the kernels and the host C++ extension
+        #    (e.g. radix.cpp) need C++20. Bump every /std:c++17 to /std:c++20.
+        #    (The nvcc -Xcompiler /std:c++20 pass is unaffected — no c++17 there.)
+        ninja = ninja.replace("/std:c++17", "/std:c++20")
+        # 2) Pair the stray /O2 with its own -Xcompiler (now /std:c++20).
+        #    Before: -Xcompiler /std:c++20 /O2 -std=c++20
         #    After:  -Xcompiler /std:c++20 -Xcompiler /O2 -std=c++20
         ninja = ninja.replace(
-            "-Xcompiler /std:c++17 /O2",
+            "-Xcompiler /std:c++20 /O2",
             "-Xcompiler /std:c++20 -Xcompiler /O2",
         )
 
-        # 2) Link cudart.lib. Append to the `ldflags =` variable line (the
+        # 3) Link cudart.lib. Append to the `ldflags =` variable line (the
         #    only place safe to inject a library + LIBPATH on Windows). The
         #    CUDA 12.x import lib lives in lib/x64.
         if "cudart.lib" not in ninja:
@@ -63,3 +70,4 @@ if platform.system() == "Windows":
         return ninja
 
     _ext._generate_ninja_build = _patched_generate_ninja_build
+

@@ -50,6 +50,10 @@ dependencies = [
     "prompt_toolkit>=3.0,<4",
     "pydantic>=2.9,<3",
     "pyzmq>=27,<28",
+    # Windows zmq asyncio bridge: the Proactor event loop can't host zmq's
+    # add_reader; tornado>=6.1 lets zmq thread the socket instead. Linux/macOS
+    # use the default selector loop and don't need it (matches the triton line).
+    "tornado>=6.1; platform_system == 'Windows'",
     "safetensors>=0.6,<1",
     # floor+ceiling: torch 2.13 is the first release whose wheel still ships a CUDA 12.6
     # (cu126) build that includes Pascal (sm_61) GPUs. CUDA 13.x wheels (cu130, the PyPI
