@@ -1,0 +1,33 @@
+# FreeToken — Pascal (sm_61) install, cu126 (CUDA 12.6) default.
+#
+# Generated from pyproject.toml core dependencies. Pascal (GTX 10-series) requires
+# the cu126 torch wheel: the default PyPI torch 2.13.0 is the cu130 (CUDA 13) build,
+# which dropped Maxwell/Pascal. The cu13-only `accel` extras (flashinfer, sglang-kernel)
+# cannot install against cu126, so they are intentionally omitted here.
+#
+# The --extra-index-url below serves the +cu126 torch wheel; every other dependency
+# resolves from PyPI. Use `uv pip install --index-strategy unsafe-best-match -r requirements.txt`
+# (or plain `pip install -r requirements.txt`) inside an activated venv.
+
+--extra-index-url https://download.pytorch.org/whl/cu126
+
+apache-tvm-ffi==0.1.13.post3
+einops>=0.8,<1
+fastapi>=0.115,<1
+flashlib==0.3.0
+gguf>=0.19,<1
+huggingface_hub>=1.5,<2
+msgpack>=1.1,<2
+modelscope>=1.37,<2
+numpy>=2.0,<2.5
+openai>=2.0,<3
+partial-json-parser>=0.2,<1
+prompt_toolkit>=3.0,<4
+pydantic>=2.9,<3
+pyzmq>=27,<28
+safetensors>=0.6,<1
+torch==2.13.0+cu126
+tqdm>=4.66,<5
+transformers>=5.5,<6
+triton==3.6.0; platform_system == 'Linux'
+uvicorn>=0.30,<1

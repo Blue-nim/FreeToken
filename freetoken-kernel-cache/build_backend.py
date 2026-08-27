@@ -102,6 +102,13 @@ def _build_jit_cache() -> None:
     }
     # Multi-arch fatbin: one SASS cubin per listed arch, plus the PTX of the highest one.
     # A GPU whose arch is not listed and is below the highest one has no usable image.
+    #   6.1  -> GTX 1080/1070/1060, GTX 1050 Ti, P40  (Pascal, consumer / datacenter)
+    #         NOTE: consumer Pascal (GP104) has NO native fp16 ALU and NO tensor cores.
+    #         The GGUF kernels avoid fp16 arithmetic (DP4A int8 dot products, fp32 scale
+    #         math) so they compile and run on sm_61; bf16 output degrades to a float
+    #         conversion. Throughput is low (fp16 is ~1/64 rate, int8 is full rate) but
+    #         correct. Built against a CUDA 12.6 toolkit + cu126 torch (CUDA 13 dropped
+    #         Pascal). See FREETOKEN_PASCAL in install.sh.
     #   8.0  -> A100, A800, A30                      (Ampere, datacenter)
     #   8.6  -> RTX 30 series, A10, A40              (Ampere, consumer / workstation)
     #   8.9  -> RTX 40 series, L4, L40, RTX 6000 Ada (Ada Lovelace)
@@ -112,7 +119,7 @@ def _build_jit_cache() -> None:
     # TVM_FFI_CUDA_ARCH_LIST directly. Needs an nvcc that supports every listed arch.
     if "TVM_FFI_CUDA_ARCH_LIST" not in os.environ:
         os.environ["TVM_FFI_CUDA_ARCH_LIST"] = os.getenv(
-            "FREETOKEN_KERNEL_CACHE_ARCHES", "8.0 8.6 8.9 9.0 10.0 12.0"
+            "FREETOKEN_KERNEL_CACHE_ARCHES", "6.1 8.0 8.6 8.9 9.0 10.0 12.0"
         )
     compile_and_package_kernels(
         out_dir=out_dir,

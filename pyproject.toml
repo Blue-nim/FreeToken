@@ -3,7 +3,7 @@
 # own, and a mismatch links the C++ extensions against the wrong libtorch.
 # setuptools floor: 77 is the first release that understands the PEP 639 `license`
 # SPDX string and `license-files` below.
-requires = ["setuptools>=77", "torch>=2.11,<2.12", "wheel"]
+requires = ["setuptools>=77", "torch>=2.13,<2.14", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -51,10 +51,13 @@ dependencies = [
     "pydantic>=2.9,<3",
     "pyzmq>=27,<28",
     "safetensors>=0.6,<1",
-    # floor+ceiling: sglang-kernel 0.4.5 links libtorch symbols only 2.11 has.
-    # PyPI's torch 2.11.0 wheel is itself the cu130 build, so plain pip resolves
-    # correctly from PyPI alone; uv additionally pins the index below.
-    "torch>=2.11,<2.12",
+    # floor+ceiling: torch 2.13 is the first release whose wheel still ships a CUDA 12.6
+    # (cu126) build that includes Pascal (sm_61) GPUs. CUDA 13.x wheels (cu130, the PyPI
+    # default for 2.11+) DROPPED Maxwell/Pascal, so Pascal (GTX 10-series) users must
+    # install the cu126 wheel (see install.sh FREETOKEN_PASCAL). RTX 30/40/50 users take
+    # the cu130 wheel by default. The torch CUDA flavor is selected at install time by
+    # install.sh's index args, not pinned here, so both paths resolve.
+    "torch>=2.13,<2.14",
     "tqdm>=4.66,<5",
     "transformers>=5.5,<6",
     "triton==3.6.0; platform_system == 'Linux'",
@@ -62,9 +65,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/FlashML-org/FreeToken"
-Repository = "https://github.com/FlashML-org/FreeToken"
-Issues = "https://github.com/FlashML-org/FreeToken/issues"
+Homepage = "https://github.com/Blue-nim/FreeToken"
+Repository = "https://github.com/Blue-nim/FreeToken"
+Issues = "https://github.com/Blue-nim/FreeToken/issues"
 
 [project.scripts]
 ft = "freetoken.cli:main"
@@ -73,8 +76,10 @@ ft = "freetoken.cli:main"
 dev = ["pytest>=6.0"]
 # Native fused-kernel packages. Without them the runtime falls back to the pure-Triton
 # kernels in freetoken.kernel.triton (and the 'triton' attention backend). Install
-# `freetoken[accel]` for the full native fast path.
-fi = ["flashinfer-python[cu13]>=0.6,<0.7"]
+# `freetoken[accel]` for the full native fast path. NOTE: these require the CUDA 13
+# (cu130) torch wheel; they are NOT available for the Pascal (cu126) path -- Pascal
+# users install the base package (see install.sh FREETOKEN_PASCAL).
+fi = ["flashinfer-python>=0.6,<0.7"]
 # renamed from sgl-kernel at 0.4; still imports as `sgl_kernel`, so never co-install both
 sgl = ["sglang-kernel==0.4.5"]
 accel = ["freetoken[fi,sgl]"]
@@ -85,17 +90,20 @@ accel = ["freetoken[fi,sgl]"]
 # in a dedicated environment when you specifically need the Marlin path.
 
 # uv-only provenance pins — pip ignores this section and resolves from PyPI, which
-# works: PyPI's torch 2.11.0 and sglang-kernel 0.4.5 are the same cu130 builds these
-# indexes serve. `explicit = true` scopes each index to the one package that needs it
-# (the torch index also mirrors stale copies of common deps, e.g. packaging<=24.1,
-# which would otherwise shadow PyPI under uv's first-index strategy).
+# works: PyPI's torch 2.13 wheel is the cu130 (CUDA 13) build, so plain pip resolves
+# correctly from PyPI alone. `unsafe-best-match` below (used by install.sh) keeps the
+# cu130 channel first; the Pascal path passes --index-url cu126 instead. sglang-kernel
+# 0.4.5 is a cu130 build, pinned to its own index. `explicit = true` scopes each index
+# to the one package that needs it (the torch index also mirrors stale copies of common
+# deps, e.g. packaging<=24.1, which would otherwise shadow PyPI under uv's first-index
+# strategy).
 [tool.uv.sources]
-torch = { index = "pytorch-cu130" }
+torch = { index = "pytorch-cu126" }
 sglang-kernel = { index = "sglang-cu130" }
 
 [[tool.uv.index]]
-name = "pytorch-cu130"
-url = "https://download.pytorch.org/whl/cu130"
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
 explicit = true
 
 [[tool.uv.index]]

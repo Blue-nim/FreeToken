@@ -25,9 +25,20 @@ def _cuda_runtime_paths() -> tuple[list[str], list[str]]:
             "because it links against the CUDA runtime API."
         )
     cuda_home = Path(CUDA_HOME)
-    library_dirs = [str(cuda_home / "lib64")]
+    library_dirs = []
+    # Linux CUDA puts libs in lib64 (+ lib); Windows CUDA puts them in lib/x64.
+    # setup.py runs on both, so pick the path that actually exists.
+    if (cuda_home / "lib64").exists():
+        library_dirs.append(str(cuda_home / "lib64"))
+    if (cuda_home / "lib" / "x64").exists():
+        library_dirs.append(str(cuda_home / "lib" / "x64"))
     if (cuda_home / "lib").exists():
         library_dirs.append(str(cuda_home / "lib"))
+    if not library_dirs:
+        raise RuntimeError(
+            f"No CUDA runtime library directory found under {cuda_home} "
+            "(expected lib64 on Linux or lib/x64 on Windows)."
+        )
     return [str(cuda_home / "include")], library_dirs
 
 
@@ -45,7 +56,10 @@ setup(
             include_dirs=cuda_include_dirs,
             library_dirs=cuda_library_dirs,
             libraries=["cudart"],
-            extra_compile_args=["-O3", "-std=c++17"],
+            # NOMINMAX: torch's CUDA headers pull in <windows.h> on Windows, which
+            # macro-defines min/max/ldexp and breaks std::min/std::max/std::ldexp in
+            # the sources. Linux is unaffected. No source changes needed.
+            extra_compile_args=["-O3", "-std=c++17", "-DNOMINMAX"],
         ),
         # CPU-compute MoE executor for --moe-backend cpu. Links cudart for the
         # cudaLaunchHostFunc submit/sync graph nodes; the bf16 GEMV microkernels
@@ -60,7 +74,7 @@ setup(
             include_dirs=cuda_include_dirs,
             library_dirs=cuda_library_dirs,
             libraries=["cudart"],
-            extra_compile_args=["-O3", "-std=c++17", "-pthread"],
+            extra_compile_args=["-O3", "-std=c++17", "-pthread", "-DNOMINMAX"],
         ),
     ],
     cmdclass={"build_ext": BuildExtension.with_options(use_ninja=True)},

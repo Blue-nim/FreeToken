@@ -24,6 +24,15 @@
 #   FREETOKEN_PY_VERSION          python for the venv (default: 3.12 — must match the wheel tag)
 #   FREETOKEN_BIN_DIR             where to symlink `ft` (default: ~/.local/bin)
 #   FREETOKEN_ENV_DIR             environment.d dir (default: ~/.config/environment.d)
+#   FREETOKEN_PASCAL              set to 1 to target a Pascal (sm_61, e.g. GTX 1070/1080)
+#                                 GPU. Uses the CUDA 12.6 torch wheel (cu126), which is
+#                                 the last PyTorch line that still ships Pascal SASS,
+#                                 skips the cu13-only accel extras (flashinfer/sglang),
+#                                 and builds the kernel-cache with an sm_61 cubin.
+#                                 Without it, the default cu130 (CUDA 13) path targets
+#                                 RTX 30/40/50 (Turing/Ampere/Blackwell). Note: no single
+#                                 torch wheel supports both Pascal and Blackwell, so this
+#                                 is an explicit choice, not a flag on the default path.
 #
 # NOTE: common TVM FFI kernels come from the kernel-cache wheel. A working CUDA
 # toolkit (nvcc) is still needed when falling back to JIT for an uncovered kernel
@@ -201,30 +210,57 @@ mkdir -p "$FT_HOME"
 # re-install can't inherit a stale/mismatched torch (e.g. an old cu128 venv after a cu130 bump).
 "$UV" venv "$VENV" --python "$PY_VERSION" --clear
 
-# PyPI's torch 2.11.0 and sglang-kernel 0.4.5 are the same cu130 builds these indexes
-# serve; the explicit indexes pin provenance to the cu130 channels. `unsafe-best-match`
-# is needed because the pytorch index also mirrors stale copies of common deps (e.g.
-# packaging<=24.1) that would shadow PyPI under uv's first-index strategy; all indexes
-# here are trusted. [tool.uv.sources] does not survive into a built wheel, so the
-# indexes it names must be repeated below.
-# flashinfer JIT-compiles its kernels on first use (e.g. sampling softmax), which needs nvcc --
-# breaking driver-only on a box with no CUDA toolkit. flashinfer-cubin + flashinfer-jit-cache ship
-# those kernels PREBUILT (multi-arch), so nothing compiles at runtime. They live on flashinfer's
-# own index (cubin arch-agnostic; jit-cache per-cuNNN). Large (~2 GiB) but downloaded once.
-INSTALL_WHEELS=(
-  "${WHEEL}[accel]"
-  flashinfer-cubin
-  flashinfer-jit-cache
-  "$KERNEL_CACHE_WHEEL"
-)
-CU_INDEX_ARGS=(
-  --index-strategy unsafe-best-match
-  --extra-index-url https://download.pytorch.org/whl/cu130
-  --extra-index-url https://docs.sglang.io/whl/cu130
-  --extra-index-url https://flashinfer.ai/whl
-  --extra-index-url https://flashinfer.ai/whl/cu130
-)
-say "installing $WHEEL + accel (flashinfer prebuilt + sglang-kernel) + $KERNEL_CACHE_WHEEL ..."
+# CUDA-flavor + accel selection. Default = CUDA 13 (cu130), RTX 30/40/50 fast path
+# with flashinfer + sglang-kernel. Pascal (FREETOKEN_PASCAL=1) = CUDA 12.6 (cu126),
+# which is the last PyTorch line that still ships Pascal (sm_61) SASS; the cu13-only
+# accel extras cannot install against cu126, so Pascal runs the base package (its own
+# CUDA C++ kernels + Triton fallback). No single torch wheel covers both Pascal and
+# Blackwell, hence the explicit branch rather than a default flip.
+if [ "${FREETOKEN_PASCAL:-0}" = "1" ]; then
+  # Export so the kernel-cache build subprocess (and any wheel build) inherits it.
+  export FREETOKEN_PASCAL=1
+  say "Pascal (sm_61) mode: CUDA 12.6 wheel (cu126), base install (no cu13 accel)."
+  INSTALL_WHEELS=(
+    "${WHEEL}"
+    "$KERNEL_CACHE_WHEEL"
+  )
+  CU_INDEX_ARGS=(
+    --index-strategy unsafe-best-match
+    --index-url https://download.pytorch.org/whl/cu126
+  )
+  # Build the kernel-cache with an sm_61 cubin (default list already includes 6.1, but
+  # be explicit so a stray FREETOKEN_KERNEL_CACHE_ARCHES cannot drop it).
+  export FREETOKEN_KERNEL_CACHE_ARCHES="${FREETOKEN_KERNEL_CACHE_ARCHES:-6.1 8.0 8.6 8.9 9.0 10.0 12.0}"
+else
+  # PyPI's torch 2.13.0 and sglang-kernel 0.4.5 are the same cu130 builds these indexes
+  # serve; the explicit indexes pin provenance to the cu130 channels. `unsafe-best-match`
+  # is needed because the pytorch index also mirrors stale copies of common deps (e.g.
+  # packaging<=24.1) that would shadow PyPI under uv's first-index strategy; all indexes
+  # here are trusted. [tool.uv.sources] does not survive into a built wheel, so the
+  # indexes it names must be repeated below.
+  # flashinfer JIT-compiles its kernels on first use (e.g. sampling softmax), which needs nvcc --
+  # breaking driver-only on a box with no CUDA toolkit. flashinfer-cubin + flashinfer-jit-cache ship
+  # those kernels PREBUILT (multi-arch), so nothing compiles at runtime. They live on flashinfer's
+  # own index (cubin arch-agnostic; jit-cache per-cuNNN). Large (~2 GiB) but downloaded once.
+  INSTALL_WHEELS=(
+    "${WHEEL}[accel]"
+    flashinfer-cubin
+    flashinfer-jit-cache
+    "$KERNEL_CACHE_WHEEL"
+  )
+  CU_INDEX_ARGS=(
+    --index-strategy unsafe-best-match
+    --extra-index-url https://download.pytorch.org/whl/cu130
+    --extra-index-url https://docs.sglang.io/whl/cu130
+    --extra-index-url https://flashinfer.ai/whl
+    --extra-index-url https://flashinfer.ai/whl/cu130
+  )
+fi
+if [ "${FREETOKEN_PASCAL:-0}" = "1" ]; then
+  say "installing $WHEEL [Pascal base] + $KERNEL_CACHE_WHEEL ..."
+else
+  say "installing $WHEEL + accel (flashinfer prebuilt + sglang-kernel) + $KERNEL_CACHE_WHEEL ..."
+fi
 # --refresh-package: the engine wheels have been republished under unchanged URLs (the
 # rolling `beta` release), and uv's URL-keyed cache does not revalidate by default -- a
 # box that cached a wheel before a republish silently reinstalls the stale copy forever

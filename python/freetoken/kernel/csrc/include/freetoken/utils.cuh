@@ -2,6 +2,19 @@
 
 #include <freetoken/utils.h>
 
+// __grid_constant__ (kernel params in grid-local const memory) is Volta+ (sm_70+).
+// Pascal (sm_61) and earlier reject the annotation, so gate it: on < sm_70 it expands
+// to nothing and the params live in the usual (slightly slower) parameter space.
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#define FREETOKEN_GRID_CONST __grid_constant__
+// L1::no_allocate (non-allocating global load) and griddepcontrol (PDL) are Volta+.
+#define FREETOKEN_LD_GLOBAL_NC "ld.global.L1::no_allocate"
+#else
+#define FREETOKEN_GRID_CONST
+// Pascal (sm_61) and earlier: drop the Volta-only modifier; plain global load.
+#define FREETOKEN_LD_GLOBAL_NC "ld.global"
+#endif
+
 #include <dlpack/dlpack.h>
 #include <tvm/ffi/extra/c_env_api.h>
 
@@ -44,13 +57,23 @@ namespace PDL {
 
 template <bool kUsePDL> __always_inline __device__ void wait() {
   if constexpr (kUsePDL) {
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
     asm volatile("griddepcontrol.wait;" ::: "memory");
+#else
+    // PDL (griddepcontrol) is Volta+ only. On Pascal, PDL is always disabled in
+    // the kernel config, so dependent-launch ordering is handled by the host;
+    // this branch is unreachable and compiles to nothing.
+#endif
   }
 }
 
 template <bool kUsePDL> __always_inline __device__ void launch() {
   if constexpr (kUsePDL) {
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
     asm volatile("griddepcontrol.launch_dependents;" :::);
+#else
+    // See wait(): PDL unavailable on Pascal, branch unreachable.
+#endif
   }
 }
 

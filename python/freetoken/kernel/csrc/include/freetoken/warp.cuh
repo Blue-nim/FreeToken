@@ -1,7 +1,12 @@
 #pragma once
 #include <freetoken/utils.cuh>
 
+// sys/cdefs.h is a glibc/Linux-only header (carried in from the Linux build env);
+// nothing in this device header actually uses it, and it does not exist under
+// MSVC/Windows. Guard it so the kernel compiles on Windows too.
+#if defined(__GLIBC__) || defined(__linux__)
 #include <sys/cdefs.h>
+#endif
 
 #include <cstddef>
 

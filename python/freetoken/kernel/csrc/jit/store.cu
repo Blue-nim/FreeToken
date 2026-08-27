@@ -25,7 +25,7 @@ struct StoreKernelParams {
 template <std::size_t kNumThreads, std::size_t kMaxOccupancy, bool kUsePDL,
           std::size_t kElementSize, std::integral T>
 __global__ __launch_bounds__(kNumThreads, kMaxOccupancy) void //
-    store_kv_cache(const __grid_constant__ StoreKernelParams params) {
+    store_kv_cache(const FREETOKEN_GRID_CONST StoreKernelParams params) {
   using namespace device;
 
   constexpr auto kWarpPerBlock =
@@ -84,7 +84,7 @@ struct StoreKernel {
         .verify(v);
     TensorMatcher({L}) //
         .with_device<kDLCUDA>(device_)
-        .with_dtype<int32_t, int64_t>(indices_dtype_)
+        .with_dtype(indices_dtype_)
         .verify(indices);
 
     const auto dtype_size = dtype_bytes(dtype_.unwrap());

@@ -1,8 +1,19 @@
 #pragma once
 
+// nvcc defines __always_inline for the host pass on Linux (gcc/clang) but not when it
+// spawns cl.exe on Windows. It is used throughout the device headers, so define it to
+// MSVC's __forceinline here; no-op on Linux where nvcc already provides it.
+#if defined(_MSC_VER) && !defined(__always_inline)
+#define __always_inline __forceinline
+#endif
+
 // ref:
 // https://forums.developer.nvidia.com/t/c-20s-source-location-compilation-error-when-using-nvcc-12-1/258026/3
-#ifdef __CUDACC__
+// The consteval/source_location shim below is only needed for nvcc 12.1 (and only on
+// the non-MSVC path: cl.exe rejects redefining the reserved __cpp_consteval macro and
+// nvcc 12.6+ ships consteval natively). Skip it everywhere else.
+#if defined(__CUDACC__) && !defined(_MSC_VER) && \
+    (__CUDACC_VER_MAJOR__ < 12 || (__CUDACC_VER_MAJOR__ == 12 && __CUDACC_VER_MINOR__ < 2))
 #pragma push_macro("__cpp_consteval")
 #pragma push_macro("_NODISCARD")
 #pragma push_macro("__builtin_LINE")

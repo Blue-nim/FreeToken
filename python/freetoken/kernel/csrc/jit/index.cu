@@ -31,7 +31,7 @@ struct MaskedKernelParams {
 template <std::size_t kNumThreads, std::size_t kMaxOccupancy, bool kUsePDL,
           std::size_t kElementSize, std::size_t kNumSplits, std::integral T>
 __global__ __launch_bounds__(kNumThreads, kMaxOccupancy) void //
-    index_kernel(const __grid_constant__ IndexKernelParams params) {
+    index_kernel(const FREETOKEN_GRID_CONST IndexKernelParams params) {
   using namespace device;
   constexpr auto kSize = kElementSize;
   constexpr auto kSizePerWarp = kSize / kNumSplits;
@@ -62,7 +62,7 @@ template <std::size_t kNumThreads, std::size_t kMaxOccupancy, bool kUsePDL,
           std::size_t kElementSize, std::size_t kNumSplits, std::integral T>
 __global__ __launch_bounds__(kNumThreads, kMaxOccupancy) void //
     masked_index_kernel(
-        const __grid_constant__ MaskedKernelParams mask_params) {
+        const FREETOKEN_GRID_CONST MaskedKernelParams mask_params) {
   using namespace device;
   constexpr auto kSize = kElementSize;
   constexpr auto kSizePerWarp = kSize / kNumSplits;
@@ -121,7 +121,7 @@ struct IndexKernel {
         .with_device<kDLCUDA>(device_)
         .verify(output);
     TensorMatcher({L}) //
-        .with_dtype<int32_t, int64_t>(indices_dtype_)
+        .with_dtype(indices_dtype_)
         .with_device<kDLCUDA>(device_)
         .verify(indices);
 

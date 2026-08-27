@@ -35,19 +35,19 @@ inline constexpr auto get_mem_package() {
 
 __always_inline __device__ auto load_nc(const uint1* __restrict__ src) -> uint1 {
     uint32_t tmp;
-    asm volatile("ld.global.L1::no_allocate.b32 %0,[%1];" : "=r"(tmp) : "l"(src));
+    asm volatile(FREETOKEN_LD_GLOBAL_NC ".b32 %0,[%1];" : "=r"(tmp) : "l"(src));
     return uint1{tmp};
 }
 
 __always_inline __device__ auto load_nc(const uint2* __restrict__ src) -> uint2 {
     uint32_t tmp0, tmp1;
-    asm volatile("ld.global.L1::no_allocate.v2.b32 {%0,%1},[%2];" : "=r"(tmp0), "=r"(tmp1) : "l"(src));
+    asm volatile(FREETOKEN_LD_GLOBAL_NC ".v2.b32 {%0,%1},[%2];" : "=r"(tmp0), "=r"(tmp1) : "l"(src));
     return uint2{tmp0, tmp1};
 }
 
 __always_inline __device__ auto load_nc(const uint4* __restrict__ src) -> uint4 {
     uint32_t tmp0, tmp1, tmp2, tmp3;
-    asm volatile("ld.global.L1::no_allocate.v4.b32 {%0,%1,%2,%3},[%4];" : "=r"(tmp0), "=r"(tmp1), "=r"(tmp2), "=r"(tmp3) : "l"(src));
+    asm volatile(FREETOKEN_LD_GLOBAL_NC ".v4.b32 {%0,%1,%2,%3},[%4];" : "=r"(tmp0), "=r"(tmp1), "=r"(tmp2), "=r"(tmp3) : "l"(src));
     return uint4{tmp0, tmp1, tmp2, tmp3};
 }
 
@@ -268,9 +268,9 @@ inline auto get_sync_flag_ptr(
 ) -> int32_t* {
     auto flag_dtype = host::SymbolicDType{};
     host::TensorMatcher({1})
-        .with_dtype<int32_t>(flag_dtype)
-        .with_device<kDLCUDA>(device)
-        .verify(sync_flag);
+    .with_dtype(flag_dtype)
+    .with_device<kDLCUDA>(device)
+    .verify(sync_flag);
     return static_cast<int32_t*>(sync_flag.data_ptr());
 }
 
@@ -353,7 +353,7 @@ struct FastIndexCopyKernel {
         .verify(dst);
 
         TensorMatcher({L})
-        .with_dtype<int32_t, int64_t>(indices_dtype)
+        .with_dtype(indices_dtype)
         .with_device<kDLCUDA>(device)
         .verify(src_indices)
         .verify(dst_indices);
@@ -362,7 +362,7 @@ struct FastIndexCopyKernel {
         if (num_indices.has_value()) {
             const auto num_indices_tensor = num_indices.value();
             TensorMatcher({1})
-                .with_dtype<int64_t>(num_indices_dtype)
+                .with_dtype(num_indices_dtype)
                 .with_device<kDLCUDA>(device)
                 .verify(num_indices_tensor);
 
@@ -485,7 +485,7 @@ struct MultiIndexCopyParams {
 
 template <typename IdType, std::size_t kNumThreads, std::size_t kBlocksPerBank>
 __global__ __launch_bounds__(kNumThreads) void fast_index_copy_multi(
-    const __grid_constant__ MultiIndexCopyParams p
+    const FREETOKEN_GRID_CONST MultiIndexCopyParams p
 ) {
     const int b = static_cast<int>(blockIdx.x / kBlocksPerBank);
     if (b >= p.num_banks) {
@@ -529,14 +529,14 @@ struct MultiIndexCopyKernel {
         auto indices_dtype = SymbolicDType{};
         auto num_indices_dtype = SymbolicDType{};
 
-        TensorMatcher({B}).with_dtype<int64_t>(ptr_dtype).with_device<kDLCUDA>(device)
+        TensorMatcher({B}).with_dtype(ptr_dtype).with_device<kDLCUDA>(device)
             .verify(dst_ptrs).verify(src_ptrs).verify(feat_bytes);
-        TensorMatcher({L}).with_dtype<int32_t, int64_t>(indices_dtype).with_device<kDLCUDA>(device)
+        TensorMatcher({L}).with_dtype(indices_dtype).with_device<kDLCUDA>(device)
             .verify(dst_indices).verify(src_indices);
 
         const int64_t* valid_length = nullptr;
         if (num_indices.has_value()) {
-            TensorMatcher({1}).with_dtype<int64_t>(num_indices_dtype).with_device<kDLCUDA>(device)
+            TensorMatcher({1}).with_dtype(num_indices_dtype).with_device<kDLCUDA>(device)
                 .verify(num_indices.value());
             valid_length = static_cast<const int64_t*>(num_indices.value().data_ptr());
         }
