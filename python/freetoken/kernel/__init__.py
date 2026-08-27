@@ -1,3 +1,7 @@
+# Apply the durable Windows tvm-ffi build-command fix BEFORE any kernel import
+# triggers a JIT compile. No-op on Linux/macOS.
+import freetoken.kernel._patch_tvm_ffi_win  # noqa: E402,F401
+
 from .index import indexing
 from .fast_index_copy import fast_index_copy_jit, update_copy_flag_jit
 from .moe_impl import (
