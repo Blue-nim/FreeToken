@@ -48,11 +48,34 @@ uv pip install "freetoken[accel]"
 
 Or build from source:
 
+**Linux / macOS** (RTX 30/40/50, Hopper, Blackwell — cu13 path):
 ```bash
 git clone https://github.com/Blue-nim/FreeToken.git && cd FreeToken
 uv venv && source .venv/bin/activate
 uv pip install -e ".[accel]"
 ```
+
+**Windows** (PowerShell or cmd):
+```powershell
+git clone https://github.com/Blue-nim/FreeToken.git && cd FreeToken
+uv venv --python 3.11
+.venv\Scripts\activate
+uv pip install -e .
+```
+> The Windows path installs the base package (the `accel` extras require the
+> CUDA 13 torch wheel, which drops Pascal). See the Pascal note below.
+
+**Pascal (sm_61, GTX 10-series) — Linux or Windows:**
+FreeToken runs on Pascal against the CUDA 12.6 (cu126) torch wheel. Set
+`FREETOKEN_PASCAL=1` (bash) / `$env:FREETOKEN_PASCAL="1"` (PowerShell) so the
+installer selects cu126 and builds an sm_61 kernel cubin:
+```bash
+FREETOKEN_PASCAL=1 uv venv --python 3.11
+FREETOKEN_PASCAL=1 uv pip install -e .
+```
+A ready-made installer is also provided: `./install_pascal.sh` (Linux) or, on
+Windows, run it from an x64 VS2022 developer prompt with `CUDA_HOME` set to
+your CUDA 12.6 toolkit: `uv pip install -e . --python .venv/Scripts/python.exe`.
 
 For More details:
 
