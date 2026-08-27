@@ -15,6 +15,8 @@ Unlock datacenter-class intelligence on the hardware you already own — Run 290
 
 ## About
 
+> **Pascal (sm_61) support.** FreeToken also runs on Pascal GPUs (NVIDIA GTX 10-series, e.g. GTX 1070/1080) via the `FREETOKEN_PASCAL` install path. This selects the CUDA 12.6 (cu126) PyTorch wheel — the last PyTorch line that still ships Pascal SASS — and builds the CUDA kernels with an `sm_61` cubin. The cu13-only acceleration extras (FlashInfer, sglang-kernel) are skipped because they cannot install against cu126; the engine falls back to its own CUDA C++ kernels plus the Triton path. See [Install → Pascal (sm_61)](docs/install.md#pascal-sm_61-gtx-10-series). Verified on a GTX 1070 (sm_61) running the `index`, `store`, and `fast_index_copy` kernels.
+
 FreeToken is an edge-native Mixture-of-Experts (MoE) serving engine designed for running frontier-scale open-weight models on personal and consumer hardware. It treats heterogeneous edge resources—GPUs, CPUs, host memory, and interconnects—as a unified, elastic inference platform. Its core features include:  
 
 - **Fast Edge-Native Runtime**: Provides efficient MoE serving with bandwidth-adaptive CPU–GPU co-execution ($q^\star$ policy), full-layer double-buffered prefill streaming, global LRU expert caching, graph-compatible execution, and the FTW fast weight format.  
@@ -23,7 +25,7 @@ FreeToken is an edge-native Mixture-of-Experts (MoE) serving engine designed for
 - **Broad MoE & Ecosystem Support**: Supports frontier open-weight MoE models (e.g., DeepSeek-V4-Flash, Qwen3.6-35B-A3B, GLM-5.2) across various parameter scales and quantization formats (e.g., MXFP4, NVFP4, FP8, BF16), with Anthropic/OpenAI-compatible APIs for seamless integration with real-world coding and tool-calling agents (e.g., Codex, Claude Code, OpenCode, OpenClaw, DeepSeek Harness). 
 - **Diverse Consumer Hardware**: Scales across consumer laptops, gaming desktops, and workstation GPUs, with native support for NVIDIA RTX 30, RTX 40, and RTX 50 series GPUs.
 
-> **Pascal (sm_61) support.** FreeToken also runs on Pascal GPUs (NVIDIA GTX 10-series, e.g. GTX 1070/1080) via the `FREETOKEN_PASCAL` install path. This selects the CUDA 12.6 (cu126) PyTorch wheel — the last PyTorch line that still ships Pascal SASS — and builds the CUDA kernels with an `sm_61` cubin. The cu13-only acceleration extras (FlashInfer, sglang-kernel) are skipped because they cannot install against cu126; the engine falls back to its own CUDA C++ kernels plus the Triton path. See [Install → Pascal (sm_61)](docs/install.md#pascal-sm_61-gtx-10-series). Verified on a GTX 1070 (sm_61) running the `index`, `store`, and `fast_index_copy` kernels.
+
 
 
 ## Getting Started
